@@ -1,31 +1,427 @@
-<!doctype html>
-<html lang="ko">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#ffffff">
-  <title>MAOOM — 5×5 Puzzle</title>
-  <link rel="stylesheet" href="./style.css">
-</head>
-<body>
-  <main class="app">
-    <header>
-      <div class="brand">maoom</div>
-      <div class="meta"><span>5 × 5 PUZZLE</span><span id="timer">TIME 00:00</span><span id="moves">MOVE 0</span></div>
-    </header>
+const N = 5;
+const COUNT = N * N;
+const EMPTY = COUNT - 1;
 
-    <section class="stage">
-      <div id="board" class="board" aria-label="MAOOM 5 by 5 sliding puzzle"></div>
-      <div id="complete" class="complete" aria-live="polite">
-        <div>MAOOM</div><small>COMPLETE</small>
-      </div>
-    </section>
+const board = document.getElementById('board');
+const movesEl = document.getElementById('moves');
+const timerEl = document.getElementById('timer');
+const complete = document.getElementById('complete');
 
-    <footer>
-      <button id="shuffle" type="button">쉐이키쉐이키</button>
-      <button id="reset" type="button">(다시)RESET</button>
-    </footer>
-  </main>
-  <script src="./script.js"></script>
-</body>
-</html>
+let state = [];
+let moves = 0;
+let locked = false;
+
+// ===============================
+// TIMER
+// ===============================
+
+let startTime = null;
+let timerInterval = null;
+let elapsedTime = 0;
+
+function formatTime(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function updateTimer() {
+  if (startTime === null) return;
+
+  elapsedTime = Date.now() - startTime;
+
+  timerEl.textContent =
+    `TIME ${formatTime(elapsedTime)}`;
+}
+
+function startTimer() {
+
+  clearInterval(timerInterval);
+
+  elapsedTime = 0;
+  startTime = Date.now();
+
+  timerEl.textContent = 'TIME 00:00';
+
+  timerInterval = setInterval(updateTimer, 250);
+}
+
+function stopTimer() {
+
+  if (startTime !== null) {
+    elapsedTime = Date.now() - startTime;
+  }
+
+  clearInterval(timerInterval);
+
+  timerInterval = null;
+  startTime = null;
+
+  timerEl.textContent =
+    `TIME ${formatTime(elapsedTime)}`;
+}
+
+function resetTimer() {
+
+  clearInterval(timerInterval);
+
+  timerInterval = null;
+  startTime = null;
+  elapsedTime = 0;
+
+  timerEl.textContent = 'TIME 00:00';
+}
+
+
+// ===============================
+// PUZZLE
+// ===============================
+
+function solved() {
+  return Array.from(
+    { length: COUNT },
+    (_, i) => i
+  );
+}
+
+function rc(pos) {
+  return [
+    Math.floor(pos / N),
+    pos % N
+  ];
+}
+
+function adjacent(a, b) {
+
+  const [ar, ac] = rc(a);
+  const [br, bc] = rc(b);
+
+  return (
+    Math.abs(ar - br) +
+    Math.abs(ac - bc)
+  ) === 1;
+}
+
+
+// ===============================
+// BUILD TILES
+// ===============================
+
+function build() {
+
+  board.innerHTML = '';
+
+  for (let id = 0; id < EMPTY; id++) {
+
+    const t =
+      document.createElement('button');
+
+    t.className = 'tile';
+    t.dataset.id = id;
+    t.type = 'button';
+
+    const r = Math.floor(id / N);
+    const c = id % N;
+
+    t.style.backgroundPosition =
+      `${c * 25}% ${r * 25}%`;
+
+    t.setAttribute(
+      'aria-label',
+      `퍼즐 조각 ${id + 1}`
+    );
+
+    t.addEventListener(
+      'click',
+      () => moveTile(id, true)
+    );
+
+    board.appendChild(t);
+  }
+}
+
+
+// ===============================
+// RENDER
+// ===============================
+
+function render() {
+
+  for (const t of board.children) {
+
+    const id =
+      Number(t.dataset.id);
+
+    const pos =
+      state.indexOf(id);
+
+    const [r, c] =
+      rc(pos);
+
+    t.style.transform =
+      `translate(${c * 100}%, ${r * 100}%)`;
+  }
+
+  movesEl.textContent =
+    `MOVE ${moves}`;
+}
+
+
+// ===============================
+// MOVE
+// ===============================
+
+function moveTile(id, countMove) {
+
+  if (locked) return;
+
+  const p =
+    state.indexOf(id);
+
+  const e =
+    state.indexOf(EMPTY);
+
+  if (!adjacent(p, e)) return;
+
+  [state[p], state[e]] =
+    [state[e], state[p]];
+
+  if (countMove) {
+    moves++;
+  }
+
+  render();
+
+  // 퍼즐 완성
+  if (
+    countMove &&
+    state.every((v, i) => v === i)
+  ) {
+
+    locked = true;
+
+    stopTimer();
+
+    complete.classList.add('show');
+  }
+}
+
+
+// ===============================
+// SHUFFLE
+// ===============================
+
+function shuffle() {
+
+  complete.classList.remove('show');
+
+  locked = false;
+
+  state = solved();
+
+  moves = 0;
+
+  let empty = EMPTY;
+  let prev = -1;
+
+  // 실제 가능한 이동만 반복해서
+  // 풀 수 있는 퍼즐 생성
+  for (let k = 0; k < 400; k++) {
+
+    const [r, c] = rc(empty);
+
+    const opts = [];
+
+    if (r > 0)
+      opts.push(empty - N);
+
+    if (r < N - 1)
+      opts.push(empty + N);
+
+    if (c > 0)
+      opts.push(empty - 1);
+
+    if (c < N - 1)
+      opts.push(empty + 1);
+
+    let choices =
+      opts.filter(x => x !== prev);
+
+    if (!choices.length)
+      choices = opts;
+
+    const next =
+      choices[
+        Math.floor(
+          Math.random() *
+          choices.length
+        )
+      ];
+
+    [state[empty], state[next]] =
+      [state[next], state[empty]];
+
+    prev = empty;
+    empty = next;
+  }
+
+  // 우연히 완성 상태면 다시 섞기
+  if (
+    state.every((v, i) => v === i)
+  ) {
+    shuffle();
+    return;
+  }
+
+  render();
+
+  // ★ 여기서 타이머 시작
+  startTimer();
+}
+
+
+// ===============================
+// RESET
+// ===============================
+
+function reset() {
+
+  complete.classList.remove('show');
+
+  locked = false;
+
+  state = solved();
+
+  moves = 0;
+
+  resetTimer();
+
+  render();
+}
+
+
+// ===============================
+// MOBILE SWIPE
+// ===============================
+
+let sx = 0;
+let sy = 0;
+
+board.addEventListener(
+  'touchstart',
+  e => {
+
+    const t =
+      e.touches[0];
+
+    sx = t.clientX;
+    sy = t.clientY;
+
+  },
+  { passive: true }
+);
+
+
+board.addEventListener(
+  'touchend',
+  e => {
+
+    if (locked) return;
+
+    const t =
+      e.changedTouches[0];
+
+    const dx =
+      t.clientX - sx;
+
+    const dy =
+      t.clientY - sy;
+
+    if (
+      Math.max(
+        Math.abs(dx),
+        Math.abs(dy)
+      ) < 24
+    ) return;
+
+    const epos =
+      state.indexOf(EMPTY);
+
+    const [er, ec] =
+      rc(epos);
+
+    let target = -1;
+
+    if (
+      Math.abs(dx) >
+      Math.abs(dy)
+    ) {
+
+      if (
+        dx > 0 &&
+        ec > 0
+      )
+        target = epos - 1;
+
+      if (
+        dx < 0 &&
+        ec < N - 1
+      )
+        target = epos + 1;
+
+    } else {
+
+      if (
+        dy > 0 &&
+        er > 0
+      )
+        target = epos - N;
+
+      if (
+        dy < 0 &&
+        er < N - 1
+      )
+        target = epos + N;
+    }
+
+    if (target >= 0) {
+
+      const id =
+        state[target];
+
+      if (id !== EMPTY)
+        moveTile(id, true);
+    }
+
+  },
+  { passive: true }
+);
+
+
+// ===============================
+// BUTTONS
+// ===============================
+
+document
+  .getElementById('shuffle')
+  .addEventListener(
+    'click',
+    shuffle
+  );
+
+document
+  .getElementById('reset')
+  .addEventListener(
+    'click',
+    reset
+  );
+
+
+// ===============================
+// START GAME
+// ===============================
+
+build();
+shuffle();
