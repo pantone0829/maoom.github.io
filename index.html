@@ -1,427 +1,798 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,viewport-fit=cover"
+>
+
+<meta name="theme-color" content="#ffffff">
+
+<title>MAOOM — 5×5 Puzzle</title>
+
+<link rel="stylesheet" href="./style.css">
+
+</head>
+
+<body>
+
+<main class="app">
+
+  <header>
+
+    <div class="brand">maoom</div>
+
+    <div class="meta">
+      <span>5 × 5 PUZZLE</span>
+      <span id="timer">TIME 00:00</span>
+      <span id="moves">MOVE 0</span>
+    </div>
+
+  </header>
+
+
+  <section class="stage">
+
+    <div
+      id="board"
+      class="board"
+      aria-label="MAOOM 5 by 5 sliding puzzle">
+    </div>
+
+    <div
+      id="complete"
+      class="complete"
+      aria-live="polite">
+
+      <div>MAOOM</div>
+      <small>COMPLETE</small>
+
+    </div>
+
+  </section>
+
+
+  <footer>
+
+    <button id="shuffle" type="button">
+      쉐이키쉐이키
+    </button>
+
+    <button id="reset" type="button">
+      (다시)RESET
+    </button>
+
+  </footer>
+
+</main>
+
+
+<script>
+
+/* ========================================
+   MAOOM 5×5 PUZZLE
+======================================== */
+
 const N = 5;
 const COUNT = N * N;
 const EMPTY = COUNT - 1;
 
-const board = document.getElementById('board');
-const movesEl = document.getElementById('moves');
-const timerEl = document.getElementById('timer');
-const complete = document.getElementById('complete');
+const board =
+  document.getElementById("board");
+
+const movesEl =
+  document.getElementById("moves");
+
+const timerEl =
+  document.getElementById("timer");
+
+const complete =
+  document.getElementById("complete");
+
 
 let state = [];
+
 let moves = 0;
+
 let locked = false;
 
-// ===============================
-// TIMER
-// ===============================
+
+
+/* ========================================
+   TIMER
+======================================== */
 
 let startTime = null;
+
 let timerInterval = null;
+
 let elapsedTime = 0;
 
-function formatTime(ms) {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
 
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+function formatTime(ms) {
+
+  const totalSeconds =
+    Math.floor(ms / 1000);
+
+  const minutes =
+    Math.floor(totalSeconds / 60);
+
+  const seconds =
+    totalSeconds % 60;
+
+  return (
+    String(minutes).padStart(2,"0")
+    +
+    ":"
+    +
+    String(seconds).padStart(2,"0")
+  );
 }
+
 
 function updateTimer() {
-  if (startTime === null) return;
 
-  elapsedTime = Date.now() - startTime;
+  if(startTime === null) return;
+
+  elapsedTime =
+    Date.now() - startTime;
 
   timerEl.textContent =
-    `TIME ${formatTime(elapsedTime)}`;
+    "TIME " + formatTime(elapsedTime);
 }
+
 
 function startTimer() {
 
   clearInterval(timerInterval);
 
   elapsedTime = 0;
+
   startTime = Date.now();
 
-  timerEl.textContent = 'TIME 00:00';
+  timerEl.textContent =
+    "TIME 00:00";
 
-  timerInterval = setInterval(updateTimer, 250);
+  timerInterval =
+    setInterval(updateTimer,250);
 }
+
 
 function stopTimer() {
 
-  if (startTime !== null) {
-    elapsedTime = Date.now() - startTime;
+  if(startTime !== null) {
+
+    elapsedTime =
+      Date.now() - startTime;
+
   }
 
   clearInterval(timerInterval);
 
   timerInterval = null;
+
   startTime = null;
 
   timerEl.textContent =
-    `TIME ${formatTime(elapsedTime)}`;
+    "TIME " + formatTime(elapsedTime);
 }
+
 
 function resetTimer() {
 
   clearInterval(timerInterval);
 
   timerInterval = null;
+
   startTime = null;
+
   elapsedTime = 0;
 
-  timerEl.textContent = 'TIME 00:00';
+  timerEl.textContent =
+    "TIME 00:00";
 }
 
 
-// ===============================
-// PUZZLE
-// ===============================
+
+/* ========================================
+   PUZZLE
+======================================== */
 
 function solved() {
+
   return Array.from(
-    { length: COUNT },
-    (_, i) => i
+    {length:COUNT},
+    (_,i)=>i
   );
+
 }
+
 
 function rc(pos) {
+
   return [
-    Math.floor(pos / N),
-    pos % N
+    Math.floor(pos/N),
+    pos%N
   ];
+
 }
 
-function adjacent(a, b) {
 
-  const [ar, ac] = rc(a);
-  const [br, bc] = rc(b);
+function adjacent(a,b) {
+
+  const [ar,ac] = rc(a);
+
+  const [br,bc] = rc(b);
 
   return (
-    Math.abs(ar - br) +
-    Math.abs(ac - bc)
-  ) === 1;
+    Math.abs(ar-br)
+    +
+    Math.abs(ac-bc)
+    === 1
+  );
+
 }
 
 
-// ===============================
-// BUILD TILES
-// ===============================
+
+/* ========================================
+   TILE 생성
+======================================== */
 
 function build() {
 
-  board.innerHTML = '';
+  board.innerHTML = "";
 
-  for (let id = 0; id < EMPTY; id++) {
 
-    const t =
-      document.createElement('button');
+  for(
+    let id=0;
+    id<EMPTY;
+    id++
+  ) {
 
-    t.className = 'tile';
-    t.dataset.id = id;
-    t.type = 'button';
+    const tile =
+      document.createElement("button");
 
-    const r = Math.floor(id / N);
-    const c = id % N;
 
-    t.style.backgroundPosition =
-      `${c * 25}% ${r * 25}%`;
+    tile.className =
+      "tile";
 
-    t.setAttribute(
-      'aria-label',
-      `퍼즐 조각 ${id + 1}`
+
+    tile.dataset.id =
+      id;
+
+
+    tile.type =
+      "button";
+
+
+    const row =
+      Math.floor(id/N);
+
+
+    const col =
+      id%N;
+
+
+    tile.style.backgroundPosition =
+      `${col*25}% ${row*25}%`;
+
+
+    tile.setAttribute(
+      "aria-label",
+      `퍼즐 조각 ${id+1}`
     );
 
-    t.addEventListener(
-      'click',
-      () => moveTile(id, true)
+
+    tile.addEventListener(
+      "click",
+      ()=>moveTile(id,true)
     );
 
-    board.appendChild(t);
+
+    board.appendChild(tile);
+
   }
+
 }
 
 
-// ===============================
-// RENDER
-// ===============================
+
+/* ========================================
+   화면 표시
+======================================== */
 
 function render() {
 
-  for (const t of board.children) {
+  for(
+    const tile
+    of board.children
+  ) {
 
     const id =
-      Number(t.dataset.id);
+      Number(tile.dataset.id);
 
-    const pos =
+
+    const position =
       state.indexOf(id);
 
-    const [r, c] =
-      rc(pos);
 
-    t.style.transform =
-      `translate(${c * 100}%, ${r * 100}%)`;
+    const [row,col] =
+      rc(position);
+
+
+    tile.style.transform =
+      `translate(
+        ${col*100}%,
+        ${row*100}%
+      )`;
+
   }
 
+
   movesEl.textContent =
-    `MOVE ${moves}`;
+    "MOVE " + moves;
+
 }
 
 
-// ===============================
-// MOVE
-// ===============================
 
-function moveTile(id, countMove) {
+/* ========================================
+   타일 이동
+======================================== */
 
-  if (locked) return;
+function moveTile(
+  id,
+  countMove
+) {
 
-  const p =
+  if(locked) return;
+
+
+  const position =
     state.indexOf(id);
 
-  const e =
+
+  const emptyPosition =
     state.indexOf(EMPTY);
 
-  if (!adjacent(p, e)) return;
 
-  [state[p], state[e]] =
-    [state[e], state[p]];
+  if(
+    !adjacent(
+      position,
+      emptyPosition
+    )
+  ) return;
 
-  if (countMove) {
+
+  [
+    state[position],
+    state[emptyPosition]
+  ]
+  =
+  [
+    state[emptyPosition],
+    state[position]
+  ];
+
+
+  if(countMove) {
+
     moves++;
+
   }
+
 
   render();
 
-  // 퍼즐 완성
-  if (
-    countMove &&
-    state.every((v, i) => v === i)
+
+
+  /* PUZZLE COMPLETE */
+
+  if(
+    countMove
+    &&
+    state.every(
+      (value,index)=>
+      value===index
+    )
   ) {
 
     locked = true;
 
     stopTimer();
 
-    complete.classList.add('show');
+    complete
+      .classList
+      .add("show");
+
   }
+
 }
 
 
-// ===============================
-// SHUFFLE
-// ===============================
+
+/* ========================================
+   SHUFFLE
+======================================== */
 
 function shuffle() {
 
-  complete.classList.remove('show');
+  complete
+    .classList
+    .remove("show");
+
 
   locked = false;
 
-  state = solved();
+
+  state =
+    solved();
+
 
   moves = 0;
 
-  let empty = EMPTY;
-  let prev = -1;
 
-  // 실제 가능한 이동만 반복해서
-  // 풀 수 있는 퍼즐 생성
-  for (let k = 0; k < 400; k++) {
+  let empty =
+    EMPTY;
 
-    const [r, c] = rc(empty);
 
-    const opts = [];
+  let previous =
+    -1;
 
-    if (r > 0)
-      opts.push(empty - N);
 
-    if (r < N - 1)
-      opts.push(empty + N);
 
-    if (c > 0)
-      opts.push(empty - 1);
+  /*
+  실제 가능한 이동을
+  반복해서 섞기 때문에
+  항상 풀 수 있는 퍼즐 생성
+  */
 
-    if (c < N - 1)
-      opts.push(empty + 1);
+  for(
+    let i=0;
+    i<400;
+    i++
+  ) {
+
+    const [row,col] =
+      rc(empty);
+
+
+    const options = [];
+
+
+    if(row>0)
+      options.push(
+        empty-N
+      );
+
+
+    if(row<N-1)
+      options.push(
+        empty+N
+      );
+
+
+    if(col>0)
+      options.push(
+        empty-1
+      );
+
+
+    if(col<N-1)
+      options.push(
+        empty+1
+      );
+
 
     let choices =
-      opts.filter(x => x !== prev);
+      options.filter(
+        x=>x!==previous
+      );
 
-    if (!choices.length)
-      choices = opts;
+
+    if(
+      choices.length===0
+    ) {
+
+      choices =
+        options;
+
+    }
+
 
     const next =
       choices[
         Math.floor(
-          Math.random() *
+          Math.random()
+          *
           choices.length
         )
       ];
 
-    [state[empty], state[next]] =
-      [state[next], state[empty]];
 
-    prev = empty;
-    empty = next;
+    [
+      state[empty],
+      state[next]
+    ]
+    =
+    [
+      state[next],
+      state[empty]
+    ];
+
+
+    previous =
+      empty;
+
+
+    empty =
+      next;
+
   }
 
-  // 우연히 완성 상태면 다시 섞기
-  if (
-    state.every((v, i) => v === i)
+
+
+  /*
+  혹시 완성 상태가 나오면
+  다시 SHUFFLE
+  */
+
+  if(
+    state.every(
+      (value,index)=>
+      value===index
+    )
   ) {
+
     shuffle();
+
     return;
+
   }
+
 
   render();
 
-  // ★ 여기서 타이머 시작
+
+  /* TIMER START */
+
   startTimer();
+
 }
 
 
-// ===============================
-// RESET
-// ===============================
+
+/* ========================================
+   RESET
+======================================== */
 
 function reset() {
 
-  complete.classList.remove('show');
+  complete
+    .classList
+    .remove("show");
+
 
   locked = false;
 
-  state = solved();
+
+  state =
+    solved();
+
 
   moves = 0;
 
+
   resetTimer();
 
+
   render();
+
 }
 
 
-// ===============================
-// MOBILE SWIPE
-// ===============================
 
-let sx = 0;
-let sy = 0;
+/* ========================================
+   MOBILE SWIPE
+======================================== */
+
+let startX = 0;
+
+let startY = 0;
+
 
 board.addEventListener(
-  'touchstart',
-  e => {
+  "touchstart",
+  event => {
 
-    const t =
-      e.touches[0];
+    const touch =
+      event.touches[0];
 
-    sx = t.clientX;
-    sy = t.clientY;
+
+    startX =
+      touch.clientX;
+
+
+    startY =
+      touch.clientY;
 
   },
-  { passive: true }
+  {passive:true}
 );
 
 
+
 board.addEventListener(
-  'touchend',
-  e => {
+  "touchend",
+  event => {
 
-    if (locked) return;
+    if(locked) return;
 
-    const t =
-      e.changedTouches[0];
+
+    const touch =
+      event.changedTouches[0];
+
 
     const dx =
-      t.clientX - sx;
+      touch.clientX-startX;
+
 
     const dy =
-      t.clientY - sy;
+      touch.clientY-startY;
 
-    if (
+
+
+    if(
       Math.max(
         Math.abs(dx),
         Math.abs(dy)
-      ) < 24
-    ) return;
+      )
+      <24
+    ) {
 
-    const epos =
+      return;
+
+    }
+
+
+
+    const emptyPosition =
       state.indexOf(EMPTY);
 
-    const [er, ec] =
-      rc(epos);
 
-    let target = -1;
+    const [row,col] =
+      rc(emptyPosition);
 
-    if (
-      Math.abs(dx) >
+
+    let target =
+      -1;
+
+
+
+    /* LEFT / RIGHT */
+
+    if(
+      Math.abs(dx)
+      >
       Math.abs(dy)
     ) {
 
-      if (
-        dx > 0 &&
-        ec > 0
-      )
-        target = epos - 1;
 
-      if (
-        dx < 0 &&
-        ec < N - 1
-      )
-        target = epos + 1;
+      if(
+        dx>0
+        &&
+        col>0
+      ) {
 
-    } else {
+        target =
+          emptyPosition-1;
 
-      if (
-        dy > 0 &&
-        er > 0
-      )
-        target = epos - N;
+      }
 
-      if (
-        dy < 0 &&
-        er < N - 1
-      )
-        target = epos + N;
+
+      if(
+        dx<0
+        &&
+        col<N-1
+      ) {
+
+        target =
+          emptyPosition+1;
+
+      }
+
     }
 
-    if (target >= 0) {
+
+    /* UP / DOWN */
+
+    else {
+
+
+      if(
+        dy>0
+        &&
+        row>0
+      ) {
+
+        target =
+          emptyPosition-N;
+
+      }
+
+
+      if(
+        dy<0
+        &&
+        row<N-1
+      ) {
+
+        target =
+          emptyPosition+N;
+
+      }
+
+    }
+
+
+
+    if(target>=0) {
 
       const id =
         state[target];
 
-      if (id !== EMPTY)
-        moveTile(id, true);
+
+      if(id!==EMPTY) {
+
+        moveTile(
+          id,
+          true
+        );
+
+      }
+
     }
 
   },
-  { passive: true }
+  {passive:true}
 );
 
 
-// ===============================
-// BUTTONS
-// ===============================
+
+/* ========================================
+   BUTTON
+======================================== */
 
 document
-  .getElementById('shuffle')
-  .addEventListener(
-    'click',
-    shuffle
-  );
+.getElementById("shuffle")
+.addEventListener(
+  "click",
+  shuffle
+);
+
 
 document
-  .getElementById('reset')
-  .addEventListener(
-    'click',
-    reset
-  );
+.getElementById("reset")
+.addEventListener(
+  "click",
+  reset
+);
 
 
-// ===============================
-// START GAME
-// ===============================
+
+/* ========================================
+   GAME START
+======================================== */
 
 build();
+
 shuffle();
+
+
+</script>
+
+</body>
+</html>
